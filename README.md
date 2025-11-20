@@ -2,7 +2,6 @@
 
 <img width="1770" height="951" alt="image" src="https://github.com/user-attachments/assets/dccb8564-3758-46d0-a368-5d90e351ea28" />
 
-
 A comprehensive graphical user interface (GUI) application for predicting material properties of microfluidic channel designs using deep learning, with integrated 3D mesh generation capabilities.
 
 ## 📋 Table of Contents
