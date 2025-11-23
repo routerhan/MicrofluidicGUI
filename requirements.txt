@@ -1,31 +1,32 @@
 # Microfluidic Property Prediction GUI - Python Dependencies
-# Python 3.8 or higher required
+# Tested on Python 3.10/3.11 (recommended; if you use 3.12+, drop pyopengltk)
 
 # Deep Learning Framework
-torch>=1.9.0
-torchvision>=0.10.0
+torch==2.2.2
+torchvision==0.17.2
 
 # Image Processing
-Pillow>=8.0.0
-numpy>=1.21.0
+Pillow==10.2.0
+numpy==1.26.4
 
 # 3D Visualization and Mesh Processing
-vispy>=0.9.0
-trimesh>=3.9.0
+vispy==0.13.0
+trimesh==4.4.0
 
 # Geometric Operations
-shapely>=1.8.0
+shapely==2.0.4
 
 # Data Processing and Machine Learning
-joblib>=1.0.0
-scikit-learn>=0.24.0
+joblib==1.3.2
+scikit-learn==1.4.2
 
 # Plotting and Visualization
-matplotlib>=3.4.0
+matplotlib==3.8.4
 
 # GUI Backend for Vispy (Tkinter)
-pyopengltk>=0.1.0
+# pyopengltk wheels stop at older Python; keep optional for 3.12+
+pyopengltk==0.0.4 ; python_version < "3.12"
+PyOpenGL==3.1.7
 
-# Optional: For better performance
-# numba>=0.56.0  # Uncomment if needed for performance optimization
-
+# Optional: For better performance (Python <=3.11)
+# numba==0.59.1  # Uncomment if needed for performance optimization
