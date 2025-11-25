@@ -18,13 +18,15 @@ shapely==2.0.4
 
 # Data Processing and Machine Learning
 joblib==1.3.2
-scikit-learn==1.4.2
+scikit-learn==1.5.2
 
 # Plotting and Visualization
 matplotlib==3.8.4
 
+# Image/mesh utilities (required for trimesh marching cubes)
+scikit-image==0.22.0
+
 # GUI Backend for Vispy (Tkinter)
-# pyopengltk wheels stop at older Python; keep optional for 3.12+
 pyopengltk==0.0.4 ; python_version < "3.12"
 PyOpenGL==3.1.7
 

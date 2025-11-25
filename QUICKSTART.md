@@ -25,6 +25,42 @@ pip install -r requirements.txt
 pip install pyopengltk
 ```
 
+### For Darwin user (MacOS)
+Since pyopengltk does not supported `darwin` platform, to check the complete GUI.
+You need to build/run linux container and use VNC to see GUI.
+
+1. Build image:
+```bash
+podman build -t mf-gui .
+```
+
+2. Run container:
+```bash
+podman run --rm -it \
+  -p 5901:5901 \
+  -v "$(pwd)":/app \
+  -w /app \
+  mf-gui
+```
+
+- 預設 VNC 密碼：vncpass（可用 -e VNC_PASSWORD=自訂密碼 覆寫）
+- 預設解析度：1600x900（可用 -e VNC_GEOMETRY=1920x1080 覆寫）
+- 容器會啟動 VNC server 並跑 MicrofluidicGUI_v4.py。
+
+3. 在 macOS 安裝/使用任意 VNC 客戶端，例如：
+
+- 內建「螢幕共享」（Screen Sharing）：按 ⌘+Space 搜尋 螢幕共享 或 Screen Sharing
+- RealVNC Viewer、TigerVNC Viewer 等第三方客戶端皆可。
+
+4. 在 VNC 客戶端中連線：
+主機：localhost
+連接埠：5901
+若客戶端要輸入完整位址，可寫成 localhost (line 5901) 或 `vnc://localhost:5901`。
+輸入密碼：預設是 vncpass，如果你在 podman run 時用 `-e VNC_PASSWORD=yourpass`，則輸入你的密碼。
+連線成功後，會看到容器內的 Linux 桌面（fluxbox），`MicrofluidicGUI_v4.py` 應該已自動開啟
+
+這樣 macOS 只是在 VNC 視窗內顯示和操作 GUI，實際的 Tk/pyopengltk/Vispy 都在容器（Linux）裡執行，不受 macOS 限制。
+
 ### 3. Verify Installation
 Check that all required files are present:
 - ✅ `MicrofluidicGUI_v4.py`
