@@ -347,6 +347,17 @@ function base64ToArrayBuffer(b64) {
   return bytes.buffer;
 }
 
+function arrayBufferToBase64(buffer) {
+  let binary = "";
+  const bytes = new Uint8Array(buffer);
+  const chunkSize = 0x8000;
+  for (let i = 0; i < bytes.length; i += chunkSize) {
+    const chunk = bytes.subarray(i, i + chunkSize);
+    binary += String.fromCharCode.apply(null, chunk);
+  }
+  return btoa(binary);
+}
+
 function createRenderer(canvasEl) {
   const renderer = new THREE.WebGLRenderer({ canvas: canvasEl, antialias: true, alpha: true });
   renderer.setPixelRatio(window.devicePixelRatio || 1);
@@ -374,6 +385,7 @@ const meshViewer = {
     renderer: null,
     scene: null,
     camera: null,
+    controls: null,
     meshGroup: null,
   },
   modal: {
@@ -393,6 +405,11 @@ const meshViewer = {
 
     this.preview.camera = new THREE.PerspectiveCamera(45, 1, 0.1, 2000);
     this.modal.camera = new THREE.PerspectiveCamera(45, 1, 0.1, 2000);
+
+    this.preview.controls = new OrbitControls(this.preview.camera, this.preview.canvas);
+    this.preview.controls.enableDamping = true;
+    this.preview.controls.dampingFactor = 0.08;
+    this.preview.controls.enablePan = false;
 
     this.modal.controls = new OrbitControls(this.modal.camera, this.modal.canvas);
     this.modal.controls.enableDamping = true;
@@ -523,6 +540,9 @@ const meshViewer = {
       if (this.modal.controls) {
         this.modal.controls.update();
       }
+      if (this.preview.controls) {
+        this.preview.controls.update();
+      }
       this.renderOnce();
       this.loopHandle = requestAnimationFrame(loop);
     };
@@ -557,4 +577,24 @@ window.addEventListener("resize", () => {
 
 // init
 resetCanvas();
+meshViewer.init();
+async function loadSampleMesh() {
+  try {
+    const res = await fetch("/static/mg_8.stl");
+    if (!res.ok) {
+      throw new Error(`Failed to load sample mesh (status ${res.status})`);
+    }
+    const buf = await res.arrayBuffer();
+    const b64 = arrayBufferToBase64(buf);
+    meshViewer.setGeometryFromBase64(b64);
+    if (previewPlaceholder) {
+      previewPlaceholder.textContent = "Sample mesh (mg_8.stl) loaded for preview.";
+    }
+    showToast("Sample mesh loaded for preview.");
+  } catch (err) {
+    console.error("Sample mesh load failed:", err);
+    showToast("Unable to load sample mesh preview.", true);
+  }
+}
+loadSampleMesh();
 showToast("Ready.");
