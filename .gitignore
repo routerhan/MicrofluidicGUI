@@ -70,4 +70,7 @@ htmlcov/
 docs/_build/
 
 # Repository, model files are too big, so download from other link.
-Repository/
+/Repository/best_model_TRCodev2GA.pth
+
+# npm packages
+/node_modules/

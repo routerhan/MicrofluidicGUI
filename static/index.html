@@ -1,0 +1,182 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Microfluidic Property Prediction (Web)</title>
+    <link rel="stylesheet" href="/static/styles.css" />
+  </head>
+  <body>
+    <header class="page-header">
+      <h1>Microfluidic Property Prediction</h1>
+      <p class="subtitle">9x3 point selection · Flow preview · Prediction · 3D Mesh</p>
+    </header>
+
+    <main class="layout">
+      <section class="panel input-panel">
+        <div class="panel-title">
+          <h2>User Input</h2>
+        </div>
+
+        <div class="grid-row">
+          <div class="card">
+            <h3>Point Selection (9 Rows x 3 Columns)</h3>
+            <p class="hint">Draw from bottom to top (row 1→9). Up to 2 points per row.</p>
+            <div class="canvas-shell">
+              <canvas id="patternCanvas" width="300" height="300"></canvas>
+            </div>
+          </div>
+
+          <div class="card">
+            <h3>Flow Path Visualization</h3>
+            <p class="hint">Flow path will be rendered here after generation.</p>
+            <div class="preview-shell">
+              <img id="flowPreview" alt="Flow preview" />
+            </div>
+          </div>
+        </div>
+
+        <div class="card params-card">
+          <div class="params">
+            <label>Channel Depth
+              <input id="cdepth" type="number" step="0.01" value="0.16" />
+            </label>
+            <label>Channel Width
+              <input id="cwidth" type="number" step="0.01" value="0.4" />
+            </label>
+            <label>Channel Space
+              <input id="cspace" type="number" step="0.01" value="0.4" />
+            </label>
+          </div>
+          <div class="actions">
+            <button id="btnGenerate" class="btn green">Generate Flow Pattern</button>
+            <button id="btnClear" class="btn pink">Clear</button>
+            <button id="btnPredict" class="btn green">Start Predict</button>
+          </div>
+        </div>
+      </section>
+
+      <section class="panel output-panel">
+        <div class="panel-title">
+          <h2>User Output</h2>
+        </div>
+
+        <div class="card results-card">
+          <h3>Mechanical Properties</h3>
+          <div class="props-grid">
+            <div class="prop-block">
+              <label for="prop-E11">E11</label>
+              <p class="note">Young's Modulus (X)</p>
+              <input id="prop-E11" readonly value="--" />
+            </div>
+            <div class="prop-block">
+              <label for="prop-YS11">YS11</label>
+              <p class="note">Yield Strength (X)</p>
+              <input id="prop-YS11" readonly value="--" />
+            </div>
+            <div class="prop-block">
+              <label for="prop-v11">v11</label>
+              <p class="note">Poisson's Ratio (X)</p>
+              <input id="prop-v11" readonly value="--" />
+            </div>
+            <div class="prop-block">
+              <label for="prop-E22">E22</label>
+              <p class="note">Young's Modulus (Y)</p>
+              <input id="prop-E22" readonly value="--" />
+            </div>
+            <div class="prop-block">
+              <label for="prop-YS22">YS22</label>
+              <p class="note">Yield Strength (Y)</p>
+              <input id="prop-YS22" readonly value="--" />
+            </div>
+            <div class="prop-block">
+              <label for="prop-v22">v22</label>
+              <p class="note">Poisson's Ratio (Y)</p>
+              <input id="prop-v22" readonly value="--" />
+            </div>
+          </div>
+
+          <h3>Thermal Properties</h3>
+          <div class="props-grid">
+            <div class="prop-block">
+              <label for="prop-k11">k11</label>
+              <p class="note">Thermal Conductivity (X)</p>
+              <input id="prop-k11" readonly value="--" />
+            </div>
+            <div class="prop-block">
+              <label for="prop-k22">k22</label>
+              <p class="note">Thermal Conductivity (Y)</p>
+              <input id="prop-k22" readonly value="--" />
+            </div>
+            <div class="prop-block">
+              <label for="prop-k33">k33</label>
+              <p class="note">Thermal Conductivity (Z)</p>
+              <input id="prop-k33" readonly value="--" />
+            </div>
+            <div class="prop-block">
+              <label for="prop-CTE11">CTE11</label>
+              <p class="note">Thermal Expansion (X)</p>
+              <input id="prop-CTE11" readonly value="--" />
+            </div>
+            <div class="prop-block">
+              <label for="prop-CTE22">CTE22</label>
+              <p class="note">Thermal Expansion (Y)</p>
+              <input id="prop-CTE22" readonly value="--" />
+            </div>
+            <div class="prop-block">
+              <label for="prop-CTE33">CTE33</label>
+              <p class="note">Thermal Expansion (Z)</p>
+              <input id="prop-CTE33" readonly value="--" />
+            </div>
+          </div>
+        </div>
+
+        <div class="card mesh-card">
+          <h3>3D Mesh</h3>
+          <div class="mesh-actions">
+            <button id="btnMesh" class="btn green">Generate 3D Mesh</button>
+            <button id="btnViewMesh" class="btn blue" disabled>Display 3D Mesh</button>
+            <button id="btnDownload" class="btn yellow" disabled>Download STL</button>
+          </div>
+          <div class="mesh-preview-shell">
+            <canvas id="meshPreviewCanvas"></canvas>
+            <div id="meshPreviewPlaceholder">Mesh preview will appear here.</div>
+          </div>
+          <p class="hint">Uses current flow; falls back to template if none.</p>
+        </div>
+      </section>
+    </main>
+
+    <div id="toast" class="toast"></div>
+
+    <div id="meshModal" class="modal hidden">
+      <div class="modal-content">
+        <div class="modal-header">
+          <h3>3D Mesh Viewer</h3>
+          <button id="modalClose" class="btn pink small">Close</button>
+        </div>
+        <div class="modal-controls">
+          <label>
+            View Mode
+            <select id="viewMode">
+              <option value="solid">Solid</option>
+              <option value="wireframe">Wireframe</option>
+              <option value="solid-wireframe">Solid + Wireframe</option>
+            </select>
+          </label>
+          <div class="view-buttons">
+            <button class="btn blue small" data-view="xy">XY</button>
+            <button class="btn blue small" data-view="xz">XZ</button>
+            <button class="btn blue small" data-view="yz">YZ</button>
+            <button class="btn yellow small" data-view="reset">Reset</button>
+          </div>
+        </div>
+        <div class="modal-canvas">
+          <canvas id="meshModalCanvas"></canvas>
+        </div>
+      </div>
+    </div>
+
+    <script type="module" src="/static/main.js"></script>
+  </body>
+</html>
