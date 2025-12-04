@@ -310,9 +310,7 @@ async function handleMesh() {
     btnDownload.disabled = false;
     btnViewMesh.disabled = false;
     state.hasMesh = true;
-    if (window.THREE) {
-      meshViewer.setGeometryFromBase64(state.meshBase64);
-    }
+    meshViewer.setGeometryFromBase64(state.meshBase64);
     showToast("Mesh generated.");
   } catch (err) {
     showToast(err.message, true);
