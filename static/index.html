@@ -30,8 +30,9 @@
           <div class="card">
             <h3>Flow Path Visualization</h3>
             <p class="hint">Flow path will be rendered here after generation.</p>
-            <div class="preview-shell">
+            <div class="preview-shell flow-preview-shell">
               <img id="flowPreview" alt="Flow preview" />
+              <div id="flowPreviewPlaceholder">Flow path preview will appear here.</div>
             </div>
           </div>
         </div>
@@ -171,10 +172,10 @@
             <button class="btn yellow small" data-view="reset">Reset</button>
           </div>
           <div class="pan-buttons">
-            <button class="btn small" data-pan="up">Pan Up</button>
-            <button class="btn small" data-pan="left">Pan Left</button>
-            <button class="btn small" data-pan="right">Pan Right</button>
-            <button class="btn small" data-pan="down">Pan Down</button>
+            <button class="btn small pan vertical" data-pan="up">Up</button>
+            <button class="btn small pan vertical" data-pan="down">Down</button>
+            <button class="btn small pan horizontal" data-pan="left">Left</button>
+            <button class="btn small pan horizontal" data-pan="right">Right</button>
           </div>
         </div>
         <div class="modal-canvas">

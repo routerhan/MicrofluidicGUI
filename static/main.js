@@ -17,6 +17,10 @@ const state = {
 const canvas = document.getElementById("patternCanvas");
 const ctx = canvas.getContext("2d");
 const flowPreview = document.getElementById("flowPreview");
+const flowPreviewPlaceholder = document.getElementById("flowPreviewPlaceholder");
+if (flowPreview) {
+  flowPreview.style.display = "none";
+}
 const btnGenerate = document.getElementById("btnGenerate");
 const btnClear = document.getElementById("btnClear");
 const btnPredict = document.getElementById("btnPredict");
@@ -195,12 +199,21 @@ function clearSelection() {
   state.predictions = null;
   state.meshBase64 = null;
   state.hasMesh = false;
-  flowPreview.src = "";
+  if (flowPreview) {
+    flowPreview.src = "";
+    flowPreview.style.display = "none";
+  }
+  if (flowPreviewPlaceholder) {
+    flowPreviewPlaceholder.style.display = "flex";
+  }
   btnDownload.disabled = true;
   btnViewMesh.disabled = true;
   state.flowCoords = null;
   if (previewPlaceholder) {
     previewPlaceholder.style.display = "flex";
+  }
+  if (meshViewer && typeof meshViewer.clearGeometry === "function") {
+    meshViewer.clearGeometry();
   }
   document.querySelectorAll(".results-card input").forEach((el) => (el.value = "--"));
   resetCanvas();
@@ -249,7 +262,13 @@ async function handleGenerate() {
     const data = await apiCall("/api/flow/generate", { points: coordsPayload(), params });
     state.imgFlow = data.image_base64;
     state.flowCoords = data.coords;
-    flowPreview.src = `data:image/png;base64,${state.imgFlow}`;
+    if (flowPreview) {
+      flowPreview.src = `data:image/png;base64,${state.imgFlow}`;
+      flowPreview.style.display = "block";
+    }
+    if (flowPreviewPlaceholder) {
+      flowPreviewPlaceholder.style.display = "none";
+    }
     showToast("Flow generated.");
   } catch (err) {
     showToast(err.message, true);
@@ -272,7 +291,13 @@ async function handlePredict() {
     const data = await apiCall("/api/predict", { points: coordsPayload(), params });
     state.imgFlow = data.image_base64;
     state.flowCoords = data.coords;
-    flowPreview.src = `data:image/png;base64,${state.imgFlow}`;
+    if (flowPreview) {
+      flowPreview.src = `data:image/png;base64,${state.imgFlow}`;
+      flowPreview.style.display = "block";
+    }
+    if (flowPreviewPlaceholder) {
+      flowPreviewPlaceholder.style.display = "none";
+    }
     state.predictions = data.predictions;
     const names = ["E11", "YS11", "v11", "E22", "YS22", "v22", "k11", "k22", "k33", "CTE11", "CTE22", "CTE33"];
     names.forEach((name, idx) => {
@@ -425,6 +450,22 @@ const meshViewer = {
       showToast("Failed to parse STL.", true);
     }
   },
+  clearGeometry() {
+    const clearTarget = (target) => {
+      if (target.scene && target.meshGroup) {
+        target.scene.remove(target.meshGroup);
+        target.meshGroup = null;
+      }
+    };
+    clearTarget(this.preview);
+    clearTarget(this.modal);
+    this.geometry = null;
+    this.boundingRadius = 20;
+    if (previewPlaceholder) {
+      previewPlaceholder.style.display = "flex";
+    }
+    this.renderOnce();
+  },
   makeMeshGroup(mode) {
     if (!this.geometry) return null;
     const group = new THREE.Group();
@@ -544,6 +585,7 @@ const meshViewer = {
   },
   openModal() {
     modalEl.classList.remove("hidden");
+    this.setOrientation("reset");
     this.resize();
     this.renderOnce();
   },
