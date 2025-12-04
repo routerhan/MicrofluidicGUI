@@ -31,6 +31,7 @@ const modalCanvas = document.getElementById("meshModalCanvas");
 const modalClose = document.getElementById("modalClose");
 const viewModeSelect = document.getElementById("viewMode");
 const viewButtons = document.querySelectorAll(".view-buttons button");
+const panButtons = document.querySelectorAll(".pan-buttons button");
 
 const gridConfig = {
   rows: 9,
@@ -345,17 +346,6 @@ function base64ToArrayBuffer(b64) {
   return bytes.buffer;
 }
 
-function arrayBufferToBase64(buffer) {
-  let binary = "";
-  const bytes = new Uint8Array(buffer);
-  const chunkSize = 0x8000;
-  for (let i = 0; i < bytes.length; i += chunkSize) {
-    const chunk = bytes.subarray(i, i + chunkSize);
-    binary += String.fromCharCode.apply(null, chunk);
-  }
-  return btoa(binary);
-}
-
 function createRenderer(canvasEl) {
   const renderer = new THREE.WebGLRenderer({ canvas: canvasEl, antialias: true, alpha: true });
   renderer.setPixelRatio(window.devicePixelRatio || 1);
@@ -503,7 +493,43 @@ const meshViewer = {
     }
     t.camera.lookAt(t.controls.target);
     t.controls.update();
-    this.render();
+    this.renderOnce();
+  },
+  panModal(direction) {
+    const t = this.modal;
+    if (!t.camera || !t.controls) return;
+    let dx = 0;
+    let dy = 0;
+    switch (direction) {
+      case "left":
+        dx = -1;
+        break;
+      case "right":
+        dx = 1;
+        break;
+      case "up":
+        dy = 1;
+        break;
+      case "down":
+        dy = -1;
+        break;
+      default:
+        return;
+    }
+    const step = Math.max(this.boundingRadius * 0.1, 1);
+    const camera = t.camera;
+    const controls = t.controls;
+    const forward = new THREE.Vector3();
+    camera.getWorldDirection(forward);
+    const right = new THREE.Vector3().crossVectors(forward, camera.up).normalize();
+    const up = camera.up.clone().normalize();
+    const offset = new THREE.Vector3()
+      .addScaledVector(right, dx * step)
+      .addScaledVector(up, dy * step);
+    camera.position.add(offset);
+    controls.target.add(offset);
+    controls.update();
+    this.renderOnce();
   },
   resize() {
     const resizeTarget = (target) => {
@@ -569,6 +595,13 @@ viewButtons.forEach((btn) => {
   });
 });
 
+panButtons.forEach((btn) => {
+  btn.addEventListener("click", () => {
+    const dir = btn.dataset.pan;
+    meshViewer.panModal(dir);
+  });
+});
+
 window.addEventListener("resize", () => {
   meshViewer.resize();
 });
@@ -576,23 +609,4 @@ window.addEventListener("resize", () => {
 // init
 resetCanvas();
 meshViewer.init();
-async function loadSampleMesh() {
-  try {
-    const res = await fetch("/static/mg_8.stl");
-    if (!res.ok) {
-      throw new Error(`Failed to load sample mesh (status ${res.status})`);
-    }
-    const buf = await res.arrayBuffer();
-    const b64 = arrayBufferToBase64(buf);
-    meshViewer.setGeometryFromBase64(b64);
-    if (previewPlaceholder) {
-      previewPlaceholder.textContent = "Sample mesh (mg_8.stl) loaded for preview.";
-    }
-    showToast("Sample mesh loaded for preview.");
-  } catch (err) {
-    console.error("Sample mesh load failed:", err);
-    showToast("Unable to load sample mesh preview.", true);
-  }
-}
-loadSampleMesh();
 showToast("Ready.");
