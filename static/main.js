@@ -1,6 +1,7 @@
 import * as THREE from "./libs/three.module.min.js";
 import { STLLoader } from "./libs/STLLoader.js";
 import { OrbitControls } from "./libs/OrbitControls.js";
+import { RoomEnvironment } from "./libs/RoomEnvironment.js";
 
 const state = {
   points: [], // {row, col, x, y}
@@ -35,7 +36,11 @@ const modalCanvas = document.getElementById("meshModalCanvas");
 const modalClose = document.getElementById("modalClose");
 const viewModeSelect = document.getElementById("viewMode");
 const viewButtons = document.querySelectorAll(".view-buttons button");
+const viewButtonsContainer = document.querySelector(".view-buttons");
 const panButtons = document.querySelectorAll(".pan-buttons button");
+const modalOrientationOverlay = document.getElementById("modalOrientationOverlay");
+const modalHintOverlay = document.getElementById("modalHintOverlay");
+const orientationLabel = document.getElementById("orientationLabel");
 
 const gridConfig = {
   rows: 9,
@@ -374,18 +379,46 @@ function base64ToArrayBuffer(b64) {
 function createRenderer(canvasEl) {
   const renderer = new THREE.WebGLRenderer({ canvas: canvasEl, antialias: true, alpha: true });
   renderer.setPixelRatio(window.devicePixelRatio || 1);
+  renderer.outputEncoding = THREE.sRGBEncoding;
+  renderer.toneMapping = THREE.ACESFilmicToneMapping;
+  renderer.toneMappingExposure = 1.1;
+  renderer.shadowMap.enabled = true;
+  renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+  renderer.physicallyCorrectLights = true;
   return renderer;
 }
 
-function createScene() {
+function createEnvironmentTexture(renderer) {
+  const pmremGenerator = new THREE.PMREMGenerator(renderer);
+  pmremGenerator.compileEquirectangularShader();
+  const roomEnvironment = new RoomEnvironment(renderer);
+  const envRT = pmremGenerator.fromScene(roomEnvironment);
+  const texture = envRT.texture;
+  envRT.dispose();
+  roomEnvironment.dispose();
+  pmremGenerator.dispose();
+  return texture;
+}
+
+function createScene(envTexture) {
   const scene = new THREE.Scene();
-  scene.background = new THREE.Color(0xffffff);
-  const light1 = new THREE.DirectionalLight(0xffffff, 0.8);
-  light1.position.set(1, 1, 1);
-  const light2 = new THREE.DirectionalLight(0xffffff, 0.5);
-  light2.position.set(-1, -1, -0.5);
-  const ambient = new THREE.AmbientLight(0xffffff, 0.4);
-  scene.add(light1, light2, ambient);
+  scene.background = new THREE.Color(0xf5f7fb);
+  if (envTexture) {
+    scene.environment = envTexture;
+  }
+  const hemi = new THREE.HemisphereLight(0xffffff, 0x1b1f2f, 0.55);
+  const keyLight = new THREE.DirectionalLight(0xffffff, 1.1);
+  keyLight.position.set(8, 12, 10);
+  keyLight.castShadow = true;
+  keyLight.shadow.mapSize.set(1024, 1024);
+  keyLight.shadow.bias = -0.0001;
+  const fillLight = new THREE.DirectionalLight(0xd8e5ff, 0.6);
+  fillLight.position.set(-6, 6, -5);
+  const rimLight = new THREE.SpotLight(0xfff2d5, 0.5, 0, Math.PI / 5, 0.4);
+  rimLight.position.set(0, 5, -9);
+  rimLight.target.position.set(0, 0, 0);
+  rimLight.castShadow = true;
+  scene.add(hemi, keyLight, fillLight, rimLight, rimLight.target);
   return scene;
 }
 
@@ -393,6 +426,10 @@ const meshViewer = {
   geometry: null,
   boundingRadius: 20,
   loopHandle: null,
+  environmentMap: null,
+  autorotate: true,
+  autorotateSpeed: 0.002,
+  autorotateTimeout: null,
   preview: {
     canvas: previewCanvas,
     renderer: null,
@@ -413,8 +450,10 @@ const meshViewer = {
     this.preview.renderer = createRenderer(this.preview.canvas);
     this.modal.renderer = createRenderer(this.modal.canvas);
 
-    this.preview.scene = createScene();
-    this.modal.scene = createScene();
+    this.environmentMap = createEnvironmentTexture(this.preview.renderer);
+
+    this.preview.scene = createScene(this.environmentMap);
+    this.modal.scene = createScene(this.environmentMap);
 
     this.preview.camera = new THREE.PerspectiveCamera(45, 1, 0.1, 2000);
     this.modal.camera = new THREE.PerspectiveCamera(45, 1, 0.1, 2000);
@@ -436,8 +475,28 @@ const meshViewer = {
       const loader = new STLLoader();
       const geometry = loader.parse(base64ToArrayBuffer(stlB64));
       geometry.computeBoundingBox();
+      const center = new THREE.Vector3();
+      geometry.boundingBox.getCenter(center);
+      geometry.translate(-center.x, -center.y, -center.z);
+      geometry.computeBoundingBox();
       geometry.computeBoundingSphere();
-      console.log("STL geometry", geometry.boundingBox, geometry.boundingSphere);
+      const position = geometry.getAttribute("position");
+      if (position) {
+        const colors = new Float32Array(position.count * 3);
+        const color = new THREE.Color();
+        const minY = geometry.boundingBox?.min.y ?? -1;
+        const maxY = geometry.boundingBox?.max.y ?? 1;
+        const range = Math.max(maxY - minY, 1e-5);
+        for (let i = 0; i < position.count; i++) {
+          const y = position.getY(i);
+          const t = (y - minY) / range;
+          color.setHSL(0.6 - 0.5 * t, 0.75, 0.5 + 0.15 * t);
+          colors[i * 3] = color.r;
+          colors[i * 3 + 1] = color.g;
+          colors[i * 3 + 2] = color.b;
+        }
+        geometry.setAttribute("color", new THREE.BufferAttribute(colors, 3));
+      }
       this.geometry = geometry;
       this.boundingRadius = geometry.boundingSphere ? geometry.boundingSphere.radius : 20;
       this.applyViewMode(viewModeSelect.value || "solid");
@@ -470,13 +529,32 @@ const meshViewer = {
     if (!this.geometry) return null;
     const group = new THREE.Group();
     if (mode === "wireframe" || mode === "solid-wireframe") {
-      const wire = new THREE.MeshBasicMaterial({ color: 0x1f4f8b, wireframe: true });
+      const wire = new THREE.MeshBasicMaterial({
+        color: 0xffffff,
+        wireframe: true,
+        vertexColors: true,
+        transparent: true,
+        opacity: 0.9,
+      });
       const mesh = new THREE.Mesh(this.geometry, wire);
+      mesh.castShadow = true;
       group.add(mesh);
     }
     if (mode === "solid" || mode === "solid-wireframe") {
-      const solidMat = new THREE.MeshPhongMaterial({ color: 0xadd8e6, shininess: 80 });
+      const solidMat = new THREE.MeshPhysicalMaterial({
+        color: 0xb7d8ff,
+        roughness: 0.35,
+        metalness: 0.15,
+        clearcoat: 0.6,
+        clearcoatRoughness: 0.15,
+        reflectivity: 0.8,
+        envMap: this.environmentMap || null,
+        envMapIntensity: 1.2,
+        vertexColors: true,
+      });
       const mesh = new THREE.Mesh(this.geometry, solidMat);
+      mesh.castShadow = true;
+      mesh.receiveShadow = true;
       group.add(mesh);
     }
     return group;
@@ -500,13 +578,14 @@ const meshViewer = {
   fitCamera(sceneKey) {
     const target = this[sceneKey];
     if (!target.scene || !target.camera || !this.geometry) return;
-    const box = new THREE.Box3().setFromObject(target.meshGroup || new THREE.Object3D());
+    const box = new THREE.Box3();
+    box.setFromObject(target.meshGroup || new THREE.Object3D());
     const size = new THREE.Vector3();
     box.getSize(size);
     const center = new THREE.Vector3();
     box.getCenter(center);
     const maxDim = Math.max(size.x, size.y, size.z, 1);
-    const dist = maxDim * 2;
+    const dist = maxDim * 1.3;
     target.camera.position.set(dist, dist, dist);
     target.camera.lookAt(center);
     if (target.controls) {
@@ -535,6 +614,23 @@ const meshViewer = {
     t.camera.lookAt(t.controls.target);
     t.controls.update();
     this.renderOnce();
+    let label = "Perspective";
+    switch (view) {
+      case "xy":
+        label = "Facing XY Plane";
+        break;
+      case "xz":
+        label = "Facing XZ Plane";
+        break;
+      case "yz":
+        label = "Facing YZ Plane";
+        break;
+      default:
+        label = "Perspective";
+        break;
+    }
+    this.updateOrientationLabel(label);
+    this.showOrientationOverlay();
   },
   panModal(direction) {
     const t = this.modal;
@@ -571,6 +667,7 @@ const meshViewer = {
     controls.target.add(offset);
     controls.update();
     this.renderOnce();
+    this.resumeAutoRotate();
   },
   resize() {
     const resizeTarget = (target) => {
@@ -588,6 +685,9 @@ const meshViewer = {
     this.setOrientation("reset");
     this.resize();
     this.renderOnce();
+    this.updateOrientationLabel("Perspective");
+    this.showOrientationOverlay();
+    this.showHintOverlay();
   },
   closeModal() {
     modalEl.classList.add("hidden");
@@ -609,10 +709,51 @@ const meshViewer = {
       if (this.preview.controls) {
         this.preview.controls.update();
       }
+      this.tickRotate();
       this.renderOnce();
       this.loopHandle = requestAnimationFrame(loop);
     };
     loop();
+  },
+  tickRotate() {
+    const applyRotation = (target) => {
+      if (!target.meshGroup) return;
+      target.meshGroup.rotation.y += this.autorotateSpeed;
+    };
+    if (this.autorotate) {
+      applyRotation(this.preview);
+      applyRotation(this.modal);
+    }
+  },
+  resumeAutoRotate(delay = 1500) {
+    this.autorotate = false;
+    if (this.autorotateTimeout) clearTimeout(this.autorotateTimeout);
+    this.autorotateTimeout = setTimeout(() => {
+      this.autorotate = true;
+    }, delay);
+  },
+  updateOrientationLabel(text) {
+    if (orientationLabel) {
+      orientationLabel.textContent = text;
+    }
+  },
+  showHintOverlay() {
+    if (!modalHintOverlay) return;
+    modalHintOverlay.classList.remove("hidden");
+    modalHintOverlay.classList.add("show");
+    clearTimeout(this.hintTimeout);
+    this.hintTimeout = setTimeout(() => {
+      modalHintOverlay.classList.remove("show");
+    }, 3500);
+  },
+  showOrientationOverlay() {
+    if (!modalOrientationOverlay) return;
+    modalOrientationOverlay.classList.remove("hidden");
+    modalOrientationOverlay.classList.add("show");
+    clearTimeout(this.orientationTimeout);
+    this.orientationTimeout = setTimeout(() => {
+      modalOrientationOverlay.classList.remove("show");
+    }, 2500);
   },
 };
 
@@ -622,6 +763,8 @@ btnViewMesh.addEventListener("click", () => {
     return;
   }
   meshViewer.openModal();
+  meshViewer.resumeAutoRotate(1000);
+  meshViewer.showHintOverlay();
 });
 
 modalClose.addEventListener("click", () => meshViewer.closeModal());
@@ -629,12 +772,23 @@ modalClose.addEventListener("click", () => meshViewer.closeModal());
 viewModeSelect.addEventListener("change", (e) => {
   meshViewer.applyViewMode(e.target.value);
 });
+viewModeSelect.addEventListener("mouseenter", () => {
+  meshViewer.showAxisHelpers("hover");
+  meshViewer.updateOrientationLabel(`View Mode: ${viewModeSelect.value.toUpperCase()}`);
+  meshViewer.showOrientationOverlay();
+});
+viewModeSelect.addEventListener("mouseleave", () => {
+  meshViewer.hideAxisHelpers("hover");
+});
 
 viewButtons.forEach((btn) => {
   btn.addEventListener("click", () => {
     const view = btn.dataset.view;
     meshViewer.setOrientation(view);
+    meshViewer.resumeAutoRotate();
   });
+  btn.addEventListener("mouseenter", () => meshViewer.showAxisHelpers("hover"));
+  btn.addEventListener("mouseleave", () => meshViewer.hideAxisHelpers("hover"));
 });
 
 panButtons.forEach((btn) => {
@@ -646,6 +800,11 @@ panButtons.forEach((btn) => {
 
 window.addEventListener("resize", () => {
   meshViewer.resize();
+});
+
+["mousedown", "wheel", "touchstart"].forEach((evt) => {
+  meshViewer.modal.canvas.addEventListener(evt, () => meshViewer.resumeAutoRotate());
+  meshViewer.preview.canvas.addEventListener(evt, () => meshViewer.resumeAutoRotate());
 });
 
 // init

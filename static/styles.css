@@ -362,12 +362,43 @@ h3 {
   padding: 10px;
   background: #ffffff;
   border-radius: 0 0 8px 8px;
+  position: relative;
 }
 
 #meshModalCanvas {
   width: 100%;
   height: 100%;
   display: block;
+}
+
+.modal-overlay {
+  position: absolute;
+  left: 16px;
+  bottom: 16px;
+  background: rgba(25, 25, 25, 0.72);
+  color: #f2f2f2;
+  padding: 6px 12px;
+  border-radius: 6px;
+  font-size: 12px;
+  letter-spacing: 0.4px;
+  pointer-events: none;
+  opacity: 0;
+  transform: translateY(6px);
+  transition: opacity 0.2s ease, transform 0.2s ease;
+}
+
+.modal-overlay + .modal-overlay {
+  bottom: 52px;
+}
+
+.modal-overlay.show {
+  opacity: 0.92;
+  transform: translateY(0);
+}
+
+.modal-overlay.hidden {
+  opacity: 0;
+  transform: translateY(6px);
 }
 
 .btn.small {
