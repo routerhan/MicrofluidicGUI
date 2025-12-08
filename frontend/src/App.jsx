@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { useMeshViewer } from "./meshViewer";
+import { MeshViewerR3F } from "./MeshViewerR3F";
 
 const GRID_CONFIG = {
   rows: 9,
@@ -44,12 +44,12 @@ function App() {
   const [toast, setToast] = useState({ message: "", isError: false, visible: false });
   const [viewMode, setViewMode] = useState("solid");
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const previewR3FRef = useRef(null);
+  const modalR3FRef = useRef(null);
 
-  const previewCanvasRef = useRef(null);
-  const modalCanvasRef = useRef(null);
-  const orientationLabelRef = useRef(null);
-  const orientationOverlayRef = useRef(null);
-  const hintOverlayRef = useRef(null);
+  useEffect(() => {
+    document.documentElement.removeAttribute("data-theme");
+  }, []);
 
   const showToast = useCallback((message, isError = false) => {
     setToast({ message, isError, visible: true });
@@ -68,44 +68,9 @@ function App() {
     [showToast],
   );
 
-  const {
-    loadMesh,
-    clear: clearMesh,
-    applyViewMode,
-    setOrientation,
-    pan,
-    resize,
-    resumeAutoRotate,
-    renderOnce,
-    onModalToggle,
-  } = useMeshViewer({
-    previewCanvasRef,
-    modalCanvasRef,
-    orientationLabelRef,
-    orientationOverlayRef,
-    hintOverlayRef,
-    onError: handleMeshError,
-  });
-
   useEffect(() => {
-    if (meshBase64) {
-      loadMesh(meshBase64);
-    } else {
-      clearMesh();
-    }
-  }, [meshBase64, loadMesh, clearMesh]);
-
-  useEffect(() => {
-    applyViewMode(viewMode);
-  }, [applyViewMode, viewMode]);
-
-  useEffect(() => {
-    onModalToggle(isModalOpen);
-    if (isModalOpen) {
-      resize();
-      renderOnce();
-    }
-  }, [isModalOpen, onModalToggle, resize, renderOnce]);
+    // no-op; R3F viewer handles its own lifecycle
+  }, []);
 
   const coordsPayload = useMemo(
     () =>
@@ -163,8 +128,7 @@ function App() {
     setMeshBase64(null);
     setIsModalOpen(false);
     setViewMode("solid");
-    clearMesh();
-  }, [clearMesh]);
+  }, []);
 
   const apiCall = useCallback(async (url, payload) => {
     const res = await fetch(url, {
@@ -200,14 +164,13 @@ function App() {
       setPredictions(null);
       setMeshBase64(null);
       setViewMode("solid");
-      clearMesh();
       showToast("Flow generated.");
     } catch (err) {
       showToast(err.message, true);
     } finally {
       setLoading((prev) => ({ ...prev, generating: false }));
     }
-  }, [apiCall, clearMesh, coordsPayload, loading.generating, points.length, sanitizedParams, showToast]);
+  }, [apiCall, coordsPayload, loading.generating, points.length, sanitizedParams, showToast]);
 
   const handlePredict = useCallback(async () => {
     if (loading.predicting) return;
@@ -223,14 +186,13 @@ function App() {
       setPredictions(data.predictions || null);
       setMeshBase64(null);
       setViewMode("solid");
-      clearMesh();
       showToast("Prediction done.");
     } catch (err) {
       showToast(err.message, true);
     } finally {
       setLoading((prev) => ({ ...prev, predicting: false }));
     }
-  }, [apiCall, clearMesh, coordsPayload, loading.predicting, points.length, sanitizedParams, showToast]);
+  }, [apiCall, coordsPayload, loading.predicting, points.length, sanitizedParams, showToast]);
 
   const handleMesh = useCallback(async () => {
     if (loading.meshing) return;
@@ -274,13 +236,26 @@ function App() {
     setViewMode(mode);
   };
 
+  const handleOrientation = (mode) => {
+    modalR3FRef.current?.setOrientation(mode);
+  };
+
+  const handlePan = (dir) => {
+    modalR3FRef.current?.pan(dir);
+  };
+
+  const handleResumeAutoRotate = (delay) => {
+    previewR3FRef.current?.resumeAutoRotate?.(delay);
+    modalR3FRef.current?.resumeAutoRotate?.(delay);
+  };
+
   const openModal = () => {
     if (!meshBase64) {
       showToast("Generate mesh first.", true);
       return;
     }
     setIsModalOpen(true);
-    resumeAutoRotate(1000);
+    handleResumeAutoRotate(1000);
   };
 
   const closeModal = () => {
@@ -432,12 +407,12 @@ function App() {
               </button>
             </div>
             <div className="mesh-preview-shell">
-              <canvas
-                id="meshPreviewCanvas"
-                ref={previewCanvasRef}
-                onMouseDown={() => resumeAutoRotate()}
-                onWheel={() => resumeAutoRotate()}
-                onTouchStart={() => resumeAutoRotate()}
+              <MeshViewerR3F
+                ref={previewR3FRef}
+                stlBase64={meshBase64}
+                viewMode={viewMode}
+                canvasStyle={{ width: "100%", height: "100%" }}
+                onInteract={() => handleResumeAutoRotate()}
               />
               {!meshBase64 ? <div id="meshPreviewPlaceholder">Mesh preview will appear here.</div> : null}
             </div>
@@ -484,16 +459,16 @@ function App() {
               <div className="control-group">
                 <p className="control-label">Orientation</p>
                 <div className="view-buttons chip-row">
-                  <button className="btn blue small" data-view="xy" onClick={() => setOrientation("xy")}>
+                  <button className="btn blue small" data-view="xy" onClick={() => handleOrientation("xy")}>
                     XY
                   </button>
-                  <button className="btn blue small" data-view="xz" onClick={() => setOrientation("xz")}>
+                  <button className="btn blue small" data-view="xz" onClick={() => handleOrientation("xz")}>
                     XZ
                   </button>
-                  <button className="btn blue small" data-view="yz" onClick={() => setOrientation("yz")}>
+                  <button className="btn blue small" data-view="yz" onClick={() => handleOrientation("yz")}>
                     YZ
                   </button>
-                  <button className="btn yellow small" data-view="reset" onClick={() => setOrientation("reset")}>
+                  <button className="btn yellow small" data-view="reset" onClick={() => handleOrientation("reset")}>
                     Reset
                   </button>
                 </div>
@@ -501,16 +476,16 @@ function App() {
               <div className="control-group pan-group">
                 <p className="control-label">Pan</p>
                 <div className="pan-buttons">
-                  <button className="btn small pan vertical" data-pan="up" onClick={() => pan("up")}>
+                  <button className="btn small pan vertical" data-pan="up" onClick={() => handlePan("up")}>
                     Up
                   </button>
-                  <button className="btn small pan vertical" data-pan="down" onClick={() => pan("down")}>
+                  <button className="btn small pan vertical" data-pan="down" onClick={() => handlePan("down")}>
                     Down
                   </button>
-                  <button className="btn small pan horizontal" data-pan="left" onClick={() => pan("left")}>
+                  <button className="btn small pan horizontal" data-pan="left" onClick={() => handlePan("left")}>
                     Left
                   </button>
-                  <button className="btn small pan horizontal" data-pan="right" onClick={() => pan("right")}>
+                  <button className="btn small pan horizontal" data-pan="right" onClick={() => handlePan("right")}>
                     Right
                   </button>
                 </div>
@@ -518,21 +493,14 @@ function App() {
             </div>
           </div>
           <div className="modal-canvas">
-            <canvas
-              id="meshModalCanvas"
-              ref={modalCanvasRef}
-              onMouseDown={() => resumeAutoRotate()}
-              onWheel={() => resumeAutoRotate()}
-              onTouchStart={() => resumeAutoRotate()}
+            <MeshViewerR3F
+              ref={modalR3FRef}
+              stlBase64={meshBase64}
+              viewMode={viewMode}
+              autorotate
+              canvasStyle={{ width: "100%", height: "100%" }}
+              onInteract={() => handleResumeAutoRotate()}
             />
-            <div className="modal-overlay hidden" id="modalOrientationOverlay" ref={orientationOverlayRef}>
-              Facing <span id="orientationLabel" ref={orientationLabelRef}>
-                Perspective
-              </span>
-            </div>
-            <div className="modal-overlay hidden" id="modalHintOverlay" ref={hintOverlayRef}>
-              Drag to rotate · Hold Shift + drag to pan · Scroll to zoom
-            </div>
           </div>
         </div>
       </div>
