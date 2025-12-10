@@ -284,7 +284,7 @@ export const MeshViewerR3F = forwardRef(function MeshViewerR3F(
         }
       }}
     >
-      <color attach="background" args={["#f5f7fb"]} />
+      <color attach="background" args={["#0a0f1a"]} />
       <ambientLight intensity={0.35} />
       <hemisphereLight args={[0xffffff, 0x1b1f2f, 0.5]} />
       <directionalLight

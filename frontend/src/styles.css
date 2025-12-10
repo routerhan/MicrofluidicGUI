@@ -1,26 +1,4 @@
 :root{
-  --bg: #f8f9fa;
-  --panel: #fff;
-  --card: #f1f3f5;
-  --border: #dee2e6;
-  --text: #212529;
-  --muted: #6c757d;
-  --hover: rgba(0, 0, 0, 0.04);
-  --accent: #0d6efd;
-  --syn: #6f42c1;
-  --zuk: #0dcaf0;
-  --ans: #fd7e14;
-  --ok: #198754;
-  --warn: #ffc107;
-  --bad: #dc3545;
-  --green: #00e676;
-  --blue: #00b0ff;
-  --yellow: #f0c000;
-  --pink: #ff8fad;
-  --panel-size: 520px;
-}
-
-[data-theme='dark'] {
   --bg:#0a0f1a;
   --panel:#0f1729;
   --card:#121c33;
@@ -39,6 +17,7 @@
   --blue:#2cc1d8;
   --yellow:#ffd166;
   --pink:#ff6b6b;
+  --panel-size: 520px;
 }
 
 *{box-sizing:border-box}
@@ -96,25 +75,21 @@ body {
 .btn.green {
   background: linear-gradient(135deg, color-mix(in srgb, var(--ok) 28%, transparent) 0%, color-mix(in srgb, var(--ok) 14%, var(--card)) 100%);
   border-color: color-mix(in srgb, var(--ok) 45%, transparent);
-  color: #0f2c1f;
 }
 
 .btn.blue {
   background: linear-gradient(135deg, color-mix(in srgb, var(--accent) 30%, transparent) 0%, color-mix(in srgb, var(--accent) 18%, var(--card)) 100%);
   border-color: color-mix(in srgb, var(--accent) 45%, transparent);
-  color: #0b1d38;
 }
 
 .btn.yellow {
   background: linear-gradient(135deg, color-mix(in srgb, var(--warn) 35%, transparent) 0%, color-mix(in srgb, var(--warn) 20%, var(--card)) 100%);
   border-color: color-mix(in srgb, var(--warn) 45%, transparent);
-  color: #3d2c00;
 }
 
 .btn.pink {
   background: linear-gradient(135deg, color-mix(in srgb, var(--bad) 28%, transparent) 0%, color-mix(in srgb, var(--bad) 16%, var(--card)) 100%);
   border-color: color-mix(in srgb, var(--bad) 45%, transparent);
-  color: #330d12;
 }
 
 .btn:disabled {
@@ -825,9 +800,9 @@ body {
 .preview-shell {
   border: 1px solid var(--border);
   background:
-    linear-gradient(145deg, rgba(255,255,255,0.78), rgba(255,255,255,0.62)),
-    radial-gradient(circle at 30% 30%, color-mix(in srgb, var(--hover) 50%, transparent) 0%, transparent 45%),
-    var(--panel);
+    radial-gradient(circle at 25% 20%, color-mix(in srgb, var(--accent) 16%, transparent) 0%, transparent 38%),
+    radial-gradient(circle at 75% 10%, color-mix(in srgb, var(--bad) 10%, transparent) 0%, transparent 34%),
+    linear-gradient(145deg, color-mix(in srgb, var(--panel) 92%, transparent) 0%, color-mix(in srgb, var(--bg) 90%, transparent) 100%);
   border-radius: 16px;
   min-height: var(--panel-size);
   height: var(--panel-size);
@@ -1004,7 +979,10 @@ body {
 .mesh-preview-shell {
   position: relative;
   border: 1px solid var(--border);
-  background: linear-gradient(180deg, color-mix(in srgb, var(--bg) 80%, transparent) 0%, color-mix(in srgb, var(--bg) 95%, transparent) 100%);
+  background:
+    radial-gradient(circle at 32% 18%, color-mix(in srgb, var(--accent) 12%, transparent) 0%, transparent 36%),
+    radial-gradient(circle at 74% 10%, color-mix(in srgb, var(--bad) 10%, transparent) 0%, transparent 34%),
+    linear-gradient(180deg, color-mix(in srgb, var(--panel) 92%, transparent) 0%, color-mix(in srgb, var(--bg) 90%, transparent) 100%);
   height: 360px;
   border-radius: 16px;
   overflow: hidden;
