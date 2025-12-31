@@ -13,7 +13,6 @@ from PIL import Image
 from Repository.vox2STL import vox2stl
 import vispy
 import vispy.scene
-import tkinter as tk
 
 # Default pattern image dimensions
 PATTERN_WIDTH = 1125
