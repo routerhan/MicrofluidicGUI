@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { useMeshViewer } from "./meshViewer";
+import { MeshViewerR3F } from "./MeshViewerR3F";
 
 const GRID_CONFIG = {
   rows: 9,
@@ -44,12 +44,12 @@ function App() {
   const [toast, setToast] = useState({ message: "", isError: false, visible: false });
   const [viewMode, setViewMode] = useState("solid");
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const previewR3FRef = useRef(null);
+  const modalR3FRef = useRef(null);
 
-  const previewCanvasRef = useRef(null);
-  const modalCanvasRef = useRef(null);
-  const orientationLabelRef = useRef(null);
-  const orientationOverlayRef = useRef(null);
-  const hintOverlayRef = useRef(null);
+  useEffect(() => {
+    document.documentElement.removeAttribute("data-theme");
+  }, []);
 
   const showToast = useCallback((message, isError = false) => {
     setToast({ message, isError, visible: true });
@@ -68,44 +68,9 @@ function App() {
     [showToast],
   );
 
-  const {
-    loadMesh,
-    clear: clearMesh,
-    applyViewMode,
-    setOrientation,
-    pan,
-    resize,
-    resumeAutoRotate,
-    renderOnce,
-    onModalToggle,
-  } = useMeshViewer({
-    previewCanvasRef,
-    modalCanvasRef,
-    orientationLabelRef,
-    orientationOverlayRef,
-    hintOverlayRef,
-    onError: handleMeshError,
-  });
-
   useEffect(() => {
-    if (meshBase64) {
-      loadMesh(meshBase64);
-    } else {
-      clearMesh();
-    }
-  }, [meshBase64, loadMesh, clearMesh]);
-
-  useEffect(() => {
-    applyViewMode(viewMode);
-  }, [applyViewMode, viewMode]);
-
-  useEffect(() => {
-    onModalToggle(isModalOpen);
-    if (isModalOpen) {
-      resize();
-      renderOnce();
-    }
-  }, [isModalOpen, onModalToggle, resize, renderOnce]);
+    // no-op; R3F viewer handles its own lifecycle
+  }, []);
 
   const coordsPayload = useMemo(
     () =>
@@ -163,8 +128,7 @@ function App() {
     setMeshBase64(null);
     setIsModalOpen(false);
     setViewMode("solid");
-    clearMesh();
-  }, [clearMesh]);
+  }, []);
 
   const apiCall = useCallback(async (url, payload) => {
     const res = await fetch(url, {
@@ -200,14 +164,13 @@ function App() {
       setPredictions(null);
       setMeshBase64(null);
       setViewMode("solid");
-      clearMesh();
       showToast("Flow generated.");
     } catch (err) {
       showToast(err.message, true);
     } finally {
       setLoading((prev) => ({ ...prev, generating: false }));
     }
-  }, [apiCall, clearMesh, coordsPayload, loading.generating, points.length, sanitizedParams, showToast]);
+  }, [apiCall, coordsPayload, loading.generating, points.length, sanitizedParams, showToast]);
 
   const handlePredict = useCallback(async () => {
     if (loading.predicting) return;
@@ -223,14 +186,13 @@ function App() {
       setPredictions(data.predictions || null);
       setMeshBase64(null);
       setViewMode("solid");
-      clearMesh();
       showToast("Prediction done.");
     } catch (err) {
       showToast(err.message, true);
     } finally {
       setLoading((prev) => ({ ...prev, predicting: false }));
     }
-  }, [apiCall, clearMesh, coordsPayload, loading.predicting, points.length, sanitizedParams, showToast]);
+  }, [apiCall, coordsPayload, loading.predicting, points.length, sanitizedParams, showToast]);
 
   const handleMesh = useCallback(async () => {
     if (loading.meshing) return;
@@ -274,13 +236,26 @@ function App() {
     setViewMode(mode);
   };
 
+  const handleOrientation = (mode) => {
+    modalR3FRef.current?.setOrientation(mode);
+  };
+
+  const handlePan = (dir) => {
+    modalR3FRef.current?.pan(dir);
+  };
+
+  const handleResumeAutoRotate = (delay) => {
+    previewR3FRef.current?.resumeAutoRotate?.(delay);
+    modalR3FRef.current?.resumeAutoRotate?.(delay);
+  };
+
   const openModal = () => {
     if (!meshBase64) {
       showToast("Generate mesh first.", true);
       return;
     }
     setIsModalOpen(true);
-    resumeAutoRotate(1000);
+    handleResumeAutoRotate(1000);
   };
 
   const closeModal = () => {
@@ -432,12 +407,12 @@ function App() {
               </button>
             </div>
             <div className="mesh-preview-shell">
-              <canvas
-                id="meshPreviewCanvas"
-                ref={previewCanvasRef}
-                onMouseDown={() => resumeAutoRotate()}
-                onWheel={() => resumeAutoRotate()}
-                onTouchStart={() => resumeAutoRotate()}
+              <MeshViewerR3F
+                ref={previewR3FRef}
+                stlBase64={meshBase64}
+                viewMode={viewMode}
+                canvasStyle={{ width: "100%", height: "100%" }}
+                onInteract={() => handleResumeAutoRotate()}
               />
               {!meshBase64 ? <div id="meshPreviewPlaceholder">Mesh preview will appear here.</div> : null}
             </div>
@@ -484,16 +459,16 @@ function App() {
               <div className="control-group">
                 <p className="control-label">Orientation</p>
                 <div className="view-buttons chip-row">
-                  <button className="btn blue small" data-view="xy" onClick={() => setOrientation("xy")}>
+                  <button className="btn blue small" data-view="xy" onClick={() => handleOrientation("xy")}>
                     XY
                   </button>
-                  <button className="btn blue small" data-view="xz" onClick={() => setOrientation("xz")}>
+                  <button className="btn blue small" data-view="xz" onClick={() => handleOrientation("xz")}>
                     XZ
                   </button>
-                  <button className="btn blue small" data-view="yz" onClick={() => setOrientation("yz")}>
+                  <button className="btn blue small" data-view="yz" onClick={() => handleOrientation("yz")}>
                     YZ
                   </button>
-                  <button className="btn yellow small" data-view="reset" onClick={() => setOrientation("reset")}>
+                  <button className="btn yellow small" data-view="reset" onClick={() => handleOrientation("reset")}>
                     Reset
                   </button>
                 </div>
@@ -501,16 +476,16 @@ function App() {
               <div className="control-group pan-group">
                 <p className="control-label">Pan</p>
                 <div className="pan-buttons">
-                  <button className="btn small pan vertical" data-pan="up" onClick={() => pan("up")}>
+                  <button className="btn small pan vertical" data-pan="up" onClick={() => handlePan("up")}>
                     Up
                   </button>
-                  <button className="btn small pan vertical" data-pan="down" onClick={() => pan("down")}>
+                  <button className="btn small pan vertical" data-pan="down" onClick={() => handlePan("down")}>
                     Down
                   </button>
-                  <button className="btn small pan horizontal" data-pan="left" onClick={() => pan("left")}>
+                  <button className="btn small pan horizontal" data-pan="left" onClick={() => handlePan("left")}>
                     Left
                   </button>
-                  <button className="btn small pan horizontal" data-pan="right" onClick={() => pan("right")}>
+                  <button className="btn small pan horizontal" data-pan="right" onClick={() => handlePan("right")}>
                     Right
                   </button>
                 </div>
@@ -518,21 +493,14 @@ function App() {
             </div>
           </div>
           <div className="modal-canvas">
-            <canvas
-              id="meshModalCanvas"
-              ref={modalCanvasRef}
-              onMouseDown={() => resumeAutoRotate()}
-              onWheel={() => resumeAutoRotate()}
-              onTouchStart={() => resumeAutoRotate()}
+            <MeshViewerR3F
+              ref={modalR3FRef}
+              stlBase64={meshBase64}
+              viewMode={viewMode}
+              autorotate
+              canvasStyle={{ width: "100%", height: "100%" }}
+              onInteract={() => handleResumeAutoRotate()}
             />
-            <div className="modal-overlay hidden" id="modalOrientationOverlay" ref={orientationOverlayRef}>
-              Facing <span id="orientationLabel" ref={orientationLabelRef}>
-                Perspective
-              </span>
-            </div>
-            <div className="modal-overlay hidden" id="modalHintOverlay" ref={hintOverlayRef}>
-              Drag to rotate · Hold Shift + drag to pan · Scroll to zoom
-            </div>
           </div>
         </div>
       </div>
@@ -559,21 +527,36 @@ function PatternCanvas({ points, onTogglePoint }) {
     const centerY = height / 2;
     const offsetX = centerX - gridWidth / 2;
     const offsetY = centerY - gridHeight / 2;
+    const palette = {
+      bg: "#0c1220",
+      border: "#17223a",
+      gridFill: "#111a2d",
+      gridStroke: "#213153",
+      gridText: "#ffffffff",
+      pathStart: "#98f0ff41",
+      pathEnd: "#5a6a75ff",
+      pathGlow: "rgba(152, 240, 255, 0.45)",
+      nodeInner1: "#70b7e06c",
+      nodeInner2: "#8ebbd9ff",
+      nodeStroke: "#88ced8aa",
+      nodeGlow: "rgba(143, 212, 223, 0.58)",
+      nodeLabel: "#1c315cff",
+    };
 
     const positions = {};
 
     ctx.clearRect(0, 0, width, height);
-    ctx.fillStyle = "#fff";
+    ctx.fillStyle = palette.bg;
     ctx.fillRect(0, 0, width, height);
-    ctx.strokeStyle = "#000";
-    ctx.lineWidth = 2;
+    ctx.strokeStyle = palette.border;
+    ctx.lineWidth = 1.5;
     ctx.strokeRect(1, 1, width - 2, height - 2);
 
-    ctx.fillStyle = "#e0e0e0";
-    ctx.strokeStyle = "#333";
+    ctx.fillStyle = palette.gridFill;
+    ctx.strokeStyle = palette.gridStroke;
     ctx.textAlign = "center";
     ctx.textBaseline = "middle";
-    ctx.font = "11px Arial";
+    ctx.font = "11px 'Inter', 'Segoe UI', Arial, sans-serif";
     for (let r = GRID_CONFIG.rows; r >= 1; r--) {
       const rowIdx = GRID_CONFIG.rows - r;
       for (let ci = 0; ci < GRID_CONFIG.cols.length; ci++) {
@@ -583,31 +566,31 @@ function PatternCanvas({ points, onTogglePoint }) {
         positions[`${r}-${col}`] = { x, y };
         ctx.beginPath();
         ctx.arc(x, y, GRID_CONFIG.radius, 0, Math.PI * 2);
-        ctx.fillStyle = "#e0e0e0";
+        ctx.fillStyle = palette.gridFill;
         ctx.fill();
         ctx.stroke();
-        ctx.fillStyle = "#666";
+        ctx.fillStyle = palette.gridText;
         ctx.fillText(col, x, y);
       }
     }
 
     const ordered = points.slice().sort((a, b) => (a.order || 0) - (b.order || 0));
 
-    // Draw connecting path with gradient and glow (light green)
+    // Draw connecting path with gradient and glow (cool accent)
     if (ordered.length > 1) {
       const first = positions[`${ordered[0].row}-${ordered[0].col}`];
       const last = positions[`${ordered[ordered.length - 1].row}-${ordered[ordered.length - 1].col}`];
       if (first && last) {
         const grad = ctx.createLinearGradient(first.x, first.y, last.x, last.y);
-        grad.addColorStop(0, "#d6f7e4");
-        grad.addColorStop(1, "#b4eac8");
+        grad.addColorStop(0, palette.pathStart);
+        grad.addColorStop(1, palette.pathEnd);
         ctx.save();
         ctx.strokeStyle = grad;
         ctx.lineWidth = 4;
         ctx.lineJoin = "round";
         ctx.lineCap = "round";
-        ctx.shadowColor = "rgba(182, 233, 200, 0.35)";
-        ctx.shadowBlur = 10;
+        ctx.shadowColor = palette.pathGlow;
+        ctx.shadowBlur = 12;
         ctx.beginPath();
         ordered.forEach((p, idx) => {
           const pos = positions[`${p.row}-${p.col}`];
@@ -628,23 +611,23 @@ function PatternCanvas({ points, onTogglePoint }) {
       const pos = positions[`${p.row}-${p.col}`];
       if (!pos) continue;
       const radial = ctx.createRadialGradient(pos.x - 3, pos.y - 3, 3, pos.x, pos.y, GRID_CONFIG.radius + 2);
-      radial.addColorStop(0, "#f6fffb");
-      radial.addColorStop(0.5, "#d8f7e6");
-      radial.addColorStop(1, "#b4eac8");
+      radial.addColorStop(0, "#f4f8ff");
+      radial.addColorStop(0.55, palette.nodeInner1);
+      radial.addColorStop(1, palette.nodeInner2);
       ctx.save();
       ctx.fillStyle = radial;
-      ctx.strokeStyle = "#6cc492";
+      ctx.strokeStyle = palette.nodeStroke;
       ctx.lineWidth = 2;
-      ctx.shadowColor = "rgba(108, 196, 146, 0.35)";
-      ctx.shadowBlur = 8;
+      ctx.shadowColor = palette.nodeGlow;
+      ctx.shadowBlur = 9;
       ctx.beginPath();
       ctx.arc(pos.x, pos.y, GRID_CONFIG.radius, 0, Math.PI * 2);
       ctx.fill();
       ctx.stroke();
       ctx.restore();
 
-      ctx.fillStyle = "#0f2a2f";
-      ctx.font = "bold 12px 'Segoe UI', Arial, sans-serif";
+      ctx.fillStyle = palette.nodeLabel;
+      ctx.font = "bold 12px 'Inter', 'Segoe UI', Arial, sans-serif";
       ctx.textAlign = "center";
       ctx.textBaseline = "middle";
       ctx.fillText(p.col, pos.x, pos.y);
