@@ -69,8 +69,8 @@ htmlcov/
 # Documentation
 docs/_build/
 
-# Repository, model files are too big, so download from other link.
-/Repository/*.pth
+# Repository - now tracked by Git LFS
+# /Repository/*.pth
 
 # npm packages
 /node_modules/
