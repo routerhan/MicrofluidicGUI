@@ -1,16 +1,11 @@
 FROM python:3.10-slim
 
-ENV DEBIAN_FRONTEND=noninteractive
-
-# System dependencies: Tk, OpenGL, VNC server, lightweight WM
+# System dependencies for numpy, pytorch, etc.
 RUN apt-get update && \
     apt-get install -y --no-install-recommends \
-        python3-tk tk-dev \
-        libgl1 libglu1-mesa libgl1-mesa-dri \
-        libglib2.0-0 libxrender1 libxext6 libsm6 \
-        tigervnc-standalone-server tigervnc-common tigervnc-tools \
-        fluxbox xauth && \
-    rm -rf /var/lib/apt/lists/*
+        libgl1 libglib2.0-0 git git-lfs && \
+    rm -rf /var/lib/apt/lists/* && \
+    git lfs install
 
 WORKDIR /app
 
@@ -19,13 +14,11 @@ COPY requirements.txt /app/requirements.txt
 RUN pip install --no-cache-dir --upgrade pip && \
     pip install --no-cache-dir -r requirements.txt
 
-# Copy project files
+# Copy project files (Git LFS files should be pulled by build context)
 COPY . /app
 
-# Environment defaults for VNC
-ENV DISPLAY=:1
-ENV VNC_PASSWORD=vncpass
-ENV VNC_GEOMETRY=1600x900
+# Expose port
+EXPOSE 8004
 
-# Use bash to run start.sh (works even if bind-mounted without +x)
-CMD ["bash", "/app/start.sh"]
+# Start the web backend
+CMD ["uvicorn", "backend.main:app", "--host", "0.0.0.0", "--port", "8004"]
