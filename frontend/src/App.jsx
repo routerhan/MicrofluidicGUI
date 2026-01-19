@@ -139,11 +139,17 @@ function App() {
     if (!res.ok) {
       let message = res.statusText;
       try {
-        const data = await res.json();
+        // Clone to avoid "body already read" error
+        const cloned = res.clone();
+        const data = await cloned.json();
         message = data.detail || JSON.stringify(data);
-      } catch (err) {
-        const text = await res.text();
-        message = text || message;
+      } catch {
+        try {
+          const text = await res.text();
+          message = text || message;
+        } catch {
+          // ignore
+        }
       }
       throw new Error(message);
     }
