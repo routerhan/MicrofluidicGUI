@@ -3,16 +3,22 @@
 ### =========================
 FROM node:20-slim AS frontend-builder
 
-WORKDIR /frontend
+WORKDIR /build
 
 # Copy package files first for better caching
 COPY package.json package-lock.json* ./
 RUN npm install
 
-# Copy frontend source and build
+# Copy frontend source and vite config
 COPY frontend/ ./frontend/
 COPY vite.config.js ./
+
+# Build frontend - output will go to /build/static based on vite.config.js
 RUN npm run build
+
+# Verify the build output exists
+RUN ls -la /build/static/ || echo "Static folder not found, checking alternatives..." && \
+    ls -la /static/ 2>/dev/null || true
 
 ### =========================
 ### Stage 2: Python Backend
@@ -39,7 +45,8 @@ COPY Repository/ /app/Repository/
 COPY iGenerator.py MeshGenerator.py /app/
 
 # Copy built frontend from Stage 1
-COPY --from=frontend-builder /frontend/static /app/static
+# Try both possible locations
+COPY --from=frontend-builder /build/static /app/static
 
 # Download model if it's missing or is just an LFS pointer (< 1MB)
 RUN MODEL_PATH="Repository/best_model_TRCodev2GA.pth" && \
@@ -53,6 +60,9 @@ RUN MODEL_PATH="Repository/best_model_TRCodev2GA.pth" && \
     else \
     echo "Model file already present and valid"; \
     fi
+
+# Verify static files exist
+RUN echo "Checking static files..." && ls -la /app/static/ && ls -la /app/static/assets/ || true
 
 # Expose port
 EXPOSE 8004
