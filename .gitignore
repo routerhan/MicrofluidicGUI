@@ -76,5 +76,5 @@ docs/_build/
 /node_modules/
 /package-lock.json
 
-# Vite build artifacts (keep static/assets for deployment)
-# /static/assets/
+# Vite build artifacts (built in Docker, not committed)
+/static/
