@@ -67,5 +67,5 @@ RUN echo "Checking static files..." && ls -la /app/static/ && ls -la /app/static
 # Expose port
 EXPOSE 8004
 
-# Start the web backend - use PORT env var if set, otherwise default to 8004
-CMD ["sh", "-c", "uvicorn backend.main:app --host 0.0.0.0 --port ${PORT:-8004}"]
+# Start the web backend - use PORT env var if set, otherwise default to 8080 (Zeabur default)
+CMD ["sh", "-c", "uvicorn backend.main:app --host 0.0.0.0 --port ${PORT:-8080}"]

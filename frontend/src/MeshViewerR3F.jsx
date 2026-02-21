@@ -1,5 +1,5 @@
 import React, { forwardRef, useEffect, useImperativeHandle, useMemo, useRef, useState } from "react";
-import { Canvas, useFrame, useThree } from "@react-three/fiber";
+import { Canvas, useThree } from "@react-three/fiber";
 import { ContactShadows, Edges, Environment, Grid, Lightformer, OrbitControls } from "@react-three/drei";
 import { STLLoader } from "three-stdlib";
 import * as THREE from "three";
@@ -67,8 +67,8 @@ function FitOnLoad({ geometry, controlsRef }) {
     const sphere = geometry.boundingSphere;
     if (!sphere) return;
     const radius = Math.max(sphere.radius, 1);
-    const dist = radius * 1.5;
-    camera.position.set(dist, dist, dist);
+    const dist = radius * 2.2;
+    camera.position.set(dist * 0.8, dist * 0.6, dist * 0.8);
     camera.lookAt(sphere.center);
     if (controlsRef?.current) {
       controlsRef.current.target.copy(sphere.center);
@@ -79,32 +79,19 @@ function FitOnLoad({ geometry, controlsRef }) {
   return null;
 }
 
+/**
+ * Static mesh group — no more useFrame auto-rotation.
+ * Rotation is handled entirely by OrbitControls.
+ */
 function SurfaceMesh({
   geometry,
   viewMode = "solid",
-  autorotate = true,
-  rotateSpeed = 0.4,
-  floatOffset = 0,
   rotationOffset = [Math.PI / 2, 0, 0],
 }) {
-  const groupRef = useRef(null);
-  const spinRef = useRef(0);
-  const baseQuat = useMemo(() => {
+  const rotation = useMemo(() => {
     const [rx = 0, ry = 0, rz = 0] = rotationOffset || [];
-    const e = new THREE.Euler(rx, ry, rz);
-    const q = new THREE.Quaternion();
-    q.setFromEuler(e);
-    return q;
+    return [rx, ry, rz];
   }, [rotationOffset]);
-
-  useFrame((_, delta) => {
-    if (!groupRef.current) return;
-    if (autorotate) {
-      spinRef.current += rotateSpeed * delta;
-    }
-    const spinQuat = new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(0, 1, 0), spinRef.current);
-    groupRef.current.quaternion.copy(baseQuat).multiply(spinQuat);
-  });
 
   if (!geometry) return null;
 
@@ -146,7 +133,7 @@ function SurfaceMesh({
   }
 
   return (
-    <group ref={groupRef} position={[0, floatOffset, 0]}>
+    <group rotation={rotation}>
       {meshes}
     </group>
   );
@@ -156,35 +143,16 @@ export const MeshViewerR3F = forwardRef(function MeshViewerR3F(
   {
     stlBase64,
     viewMode = "solid",
-    autorotate = true,
-    rotateSpeed = 0.4,
+    autorotate = false,
+    rotateSpeed = 1.5,
     rotationOffset = [Math.PI / 2, 0, 0],
     onInteract,
     canvasStyle,
   },
   ref,
 ) {
-  const { geometry, radius, center } = useStlGeometry(stlBase64);
+  const { geometry, radius } = useStlGeometry(stlBase64);
   const controlsRef = useRef(null);
-  const [autoRotate, setAutoRotate] = useState(autorotate);
-  const autoRotateTimeout = useRef(null);
-
-  useEffect(() => {
-    setAutoRotate(autorotate);
-  }, [autorotate]);
-
-  const pauseThenResume = (delay = 1500) => {
-    setAutoRotate(false);
-    if (autoRotateTimeout.current) clearTimeout(autoRotateTimeout.current);
-    autoRotateTimeout.current = setTimeout(() => setAutoRotate(true), delay);
-  };
-
-  useEffect(
-    () => () => {
-      if (autoRotateTimeout.current) clearTimeout(autoRotateTimeout.current);
-    },
-    [],
-  );
 
   const setOrientation = (view) => {
     const controls = controlsRef.current;
@@ -208,7 +176,6 @@ export const MeshViewerR3F = forwardRef(function MeshViewerR3F(
     }
     cam.lookAt(target);
     controls.update();
-    pauseThenResume();
   };
 
   const pan = (direction) => {
@@ -243,13 +210,11 @@ export const MeshViewerR3F = forwardRef(function MeshViewerR3F(
     cam.position.add(offset);
     target.add(offset);
     controls.update();
-    pauseThenResume();
   };
 
   useImperativeHandle(ref, () => ({
     setOrientation,
     pan,
-    resumeAutoRotate: pauseThenResume,
   }));
 
   const groundY = useMemo(() => {
@@ -260,7 +225,6 @@ export const MeshViewerR3F = forwardRef(function MeshViewerR3F(
   const groundScale = useMemo(() => Math.max(20, (radius || 10) * 3), [radius]);
   const cellSize = useMemo(() => Math.max(0.6, (radius || 10) * 0.06), [radius]);
   const sectionSize = useMemo(() => Math.max(2.5, (radius || 10) * 0.35), [radius]);
-  const floatOffset = useMemo(() => (radius || 10) * 0.1, [radius]);
 
   return (
     <Canvas
@@ -269,20 +233,6 @@ export const MeshViewerR3F = forwardRef(function MeshViewerR3F(
       camera={{ fov: 45, near: 0.1, far: 2000 }}
       gl={{ antialias: true, toneMapping: THREE.ACESFilmicToneMapping, outputColorSpace: THREE.SRGBColorSpace }}
       style={canvasStyle}
-      onPointerDown={(e) => {
-        onInteract?.(e);
-        pauseThenResume();
-      }}
-      onWheel={(e) => {
-        onInteract?.(e);
-        pauseThenResume();
-      }}
-      onPointerMove={(e) => {
-        if (e.buttons) {
-          onInteract?.(e);
-          pauseThenResume();
-        }
-      }}
     >
       <color attach="background" args={["#0a0f1a"]} />
       <ambientLight intensity={0.35} />
@@ -305,15 +255,25 @@ export const MeshViewerR3F = forwardRef(function MeshViewerR3F(
           form="rect"
         />
       </Environment>
-      <OrbitControls ref={controlsRef} enableDamping dampingFactor={0.08} makeDefault />
+
+      {/* OrbitControls: full user interaction — drag to rotate, right-drag/two-finger to pan, scroll to zoom */}
+      <OrbitControls
+        ref={controlsRef}
+        enableDamping
+        dampingFactor={0.08}
+        enablePan
+        enableZoom
+        enableRotate
+        autoRotate={autorotate}
+        autoRotateSpeed={rotateSpeed}
+        makeDefault
+      />
+
       <FitOnLoad geometry={geometry} controlsRef={controlsRef} />
       {geometry ? (
         <SurfaceMesh
           geometry={geometry}
           viewMode={viewMode}
-          autorotate={autoRotate}
-          rotateSpeed={rotateSpeed}
-          floatOffset={floatOffset}
           rotationOffset={rotationOffset}
         />
       ) : null}
